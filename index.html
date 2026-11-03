@@ -1,0 +1,1545 @@
+<title>Bag of Beans Inventory</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.0/dist/umd/supabase.js"></script>
+
+<style>
+:root {
+  --bg:        #FAFAF8;
+  --surface:   #FFFFFF;
+  --border:    #E8E4DE;
+  --border-2:  #D0C9BE;
+  --fg:        #1A1612;
+  --fg-2:      #6B6257;
+  --fg-3:      #9E9387;
+  --accent:    #3E1C00;
+  --accent-2:  #6B3A1F;
+  --gold:      #C4872A;
+  --gold-light:#F5E8D0;
+  --ok:        #1E7A3E;
+  --ok-bg:     #E8F5ED;
+  --warn:      #9A6200;
+  --warn-bg:   #FFF3DC;
+  --danger:    #B91C1C;
+  --danger-bg: #FEE2E2;
+  --r:         6px;
+  --shadow:    0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-mono: "DM Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#18120C;--surface:#241A12;--border:#3A2E24;--border-2:#52422E;
+    --fg:#F0EBE4;--fg-2:#A89A8A;--fg-3:#7A6E62;--accent:#D4A574;--accent-2:#B8865A;
+    --gold:#D4A574;--gold-light:#3A2A14;--ok:#4ADE80;--ok-bg:#052E16;
+    --warn:#FCD34D;--warn-bg:#2D1F00;--danger:#F87171;--danger-bg:#2D0A0A;
+    --shadow:0 1px 3px rgba(0,0,0,.3);color-scheme:dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#18120C;--surface:#241A12;--border:#3A2E24;--border-2:#52422E;
+  --fg:#F0EBE4;--fg-2:#A89A8A;--fg-3:#7A6E62;--accent:#D4A574;--accent-2:#B8865A;
+  --gold:#D4A574;--gold-light:#3A2A14;--ok:#4ADE80;--ok-bg:#052E16;
+  --warn:#FCD34D;--warn-bg:#2D1F00;--danger:#F87171;--danger-bg:#2D0A0A;
+  --shadow:0 1px 3px rgba(0,0,0,.3);color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:14px;line-height:1.5;}
+#app{display:flex;height:100%;overflow:hidden;}
+#sidebar{width:210px;flex-shrink:0;background:var(--accent);color:#fff;display:flex;flex-direction:column;overflow-y:auto;}
+#sidebar-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,.12);}
+#sidebar-logo h1{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.9);line-height:1.3;}
+#sidebar-logo small{display:block;font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;}
+#conn-status{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:500;padding:6px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
+#conn-dot{width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0;}
+#conn-dot.err{background:#F87171;}
+#conn-dot.loading{background:#FCD34D;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+nav{padding:8px 0;flex:1;}
+.nav-section{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);padding:14px 16px 4px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 16px;font-size:13px;font-weight:500;color:rgba(255,255,255,.7);cursor:pointer;transition:background .12s,color .12s;user-select:none;}
+.nav-item svg{flex-shrink:0;opacity:.7;}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff;}
+.nav-item.active{background:rgba(255,255,255,.14);color:#fff;}
+.nav-item.active svg{opacity:1;}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+#topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+#topbar h2{font-size:15px;font-weight:600;color:var(--fg);flex:1;}
+#menu-toggle{display:none;background:none;border:none;color:var(--fg);cursor:pointer;padding:4px;}
+#content{flex:1;overflow-y:auto;padding:20px;}
+.panel{display:none;}.panel.active{display:block;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
+.stat-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);}
+.stat-tile .label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--fg-3);margin-bottom:6px;}
+.stat-tile .value{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--fg);line-height:1;}
+.stat-tile .sub{font-size:11px;color:var(--fg-3);margin-top:4px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:16px;}
+.card-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);}
+.card-title{font-size:13px;font-weight:600;color:var(--fg);}
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{background:var(--bg);color:var(--fg-2);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:8px 12px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border);}
+tbody tr{border-bottom:1px solid var(--border);}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--bg);}
+td{padding:8px 12px;vertical-align:middle;}
+td.mono{font-family:var(--font-mono);font-size:12px;color:var(--fg-2);}
+.text-right{text-align:right;}
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+.badge-ok{background:var(--ok-bg);color:var(--ok);}
+.badge-warn{background:var(--warn-bg);color:var(--warn);}
+.badge-crit{background:var(--danger-bg);color:var(--danger);}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:opacity .12s;white-space:nowrap;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn:hover:not(:disabled){opacity:.85;}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-secondary{background:var(--surface);color:var(--fg);border-color:var(--border-2);}
+.btn-sm{padding:4px 10px;font-size:12px;}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.search-box{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--r);padding:6px 10px;}
+.search-box input{border:none;background:transparent;font-family:var(--font-body);font-size:13px;color:var(--fg);outline:none;width:180px;}
+.search-box input::placeholder{color:var(--fg-3);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.form-row.col3{grid-template-columns:1fr 1fr 1fr;}
+.form-row.col1{grid-template-columns:1fr;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:12px;font-weight:500;color:var(--fg-2);}
+.field input,.field select{background:var(--bg);border:1px solid var(--border-2);border-radius:var(--r);padding:7px 10px;font-family:var(--font-body);font-size:13px;color:var(--fg);outline:none;}
+.field input:focus,.field select:focus{border-color:var(--gold);}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;}
+.modal-bg[hidden]{display:none!important;}
+.modal{background:var(--surface);border-radius:8px;border:1px solid var(--border);width:100%;max-width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);}
+.modal-header h3{font-size:14px;font-weight:600;}
+.modal-close{background:none;border:none;color:var(--fg-2);cursor:pointer;font-size:18px;line-height:1;}
+.modal-body{padding:18px;}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border);}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--fg);color:var(--surface);font-size:13px;font-weight:500;padding:10px 18px;border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:200;opacity:0;transform:translateY(6px);transition:opacity .18s,transform .18s;pointer-events:none;}
+#toast.show{opacity:1;transform:none;}
+.alert-strip{display:flex;align-items:center;gap:10px;background:var(--warn-bg);border:1px solid var(--warn);border-radius:var(--r);padding:9px 14px;margin-bottom:14px;font-size:13px;color:var(--warn);}
+.stock-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;min-width:60px;}
+.stock-fill{height:100%;border-radius:3px;background:var(--ok);transition:width .3s;}
+.stock-fill.warn{background:var(--gold);}
+.stock-fill.crit{background:var(--danger);}
+.chip{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:10px;background:var(--gold-light);color:var(--gold);}
+.section-label{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--fg-3);margin-bottom:10px;}
+.empty-state{text-align:center;padding:40px 20px;color:var(--fg-3);}
+.loading-state{text-align:center;padding:40px 20px;color:var(--fg-3);animation:pulse 1s infinite;}
+@media print {
+  #sidebar, #topbar, .toolbar, .btn, #toast { display: none !important; }
+  #app { display: block !important; height: auto !important; overflow: visible !important; }
+  #main { display: block !important; height: auto !important; overflow: visible !important; min-width: 0; }
+  #content { display: block !important; height: auto !important; overflow: visible !important; padding: 0; }
+  .panel { display: none !important; }
+  #panel-reports.active { display: block !important; }
+  #panel-inventory-report.active { display: block !important; }
+  #panel-recipes.active { display: block !important; }
+  .no-print { display: none !important; }
+  #menu-print-header { display: block !important; }
+  .card { box-shadow: none; border: 1px solid #ccc; }
+  .tbl-wrap { overflow: visible !important; max-height: none !important; height: auto !important; }
+  table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+  tr { page-break-inside: avoid; page-break-after: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  body { font-size: 12px; background: #fff; color: #000; }
+  #report-print-header { display: block !important; }
+  #invreport-print-header { display: block !important; }
+}
+#invreport-print-header { display: none; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #3E1C00; }
+#invreport-print-header h2 { font-size: 18px; font-weight: 700; color: #3E1C00; }
+#invreport-print-header p { font-size: 12px; color: #666; margin-top: 2px; }
+#report-print-header {
+  display: none;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #3E1C00;
+}
+#report-print-header h2 { font-size: 18px; font-weight: 700; color: #3E1C00; }
+#report-print-header p  { font-size: 12px; color: #666; margin-top: 2px; }
+@media(max-width:680px){
+  #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:50;transform:translateX(-100%);transition:transform .2s;width:220px;}
+  #sidebar.open{transform:none;}
+  #menu-toggle{display:flex;}
+  .form-row{grid-template-columns:1fr;}
+  .form-row.col3{grid-template-columns:1fr 1fr;}
+  .stat-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+
+<div id="toast"></div>
+
+<div id="app">
+  <aside id="sidebar">
+    <div id="sidebar-logo">
+      <h1>Bag of Beans</h1>
+      <small>Inventory Manager</small>
+    </div>
+    <div id="conn-status">
+      <div id="conn-dot" class="loading"></div>
+      <span id="conn-label">Connecting…</span>
+    </div>
+    <nav>
+      <div class="nav-section">Overview</div>
+      <div class="nav-item active" data-panel="dashboard">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-section">Inventory</div>
+      <div class="nav-item" data-panel="ingredients">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        Ingredients
+      </div>
+      <div class="nav-item" data-panel="conversions">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+        Unit Conversions
+      </div>
+      <div class="nav-section">Operations</div>
+      <div class="nav-item" data-panel="receiving">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+        Receiving
+      </div>
+      <div class="nav-item" data-panel="waste">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        Waste & Spoilage
+      </div>
+      <div class="nav-section">Menu</div>
+      <div class="nav-item" data-panel="recipes">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        Recipes
+      </div>
+      <div class="nav-item" data-panel="sales">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        Record Sales
+      </div>
+      <div class="nav-section">Reports</div>
+      <div class="nav-item" data-panel="reports">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        Reports
+      </div>
+      <div class="nav-item" data-panel="inventory-report">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        Inventory List
+      </div>
+      <div class="nav-section">Data</div>
+      <div class="nav-item" onclick="exportBackup()">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Export Backup
+      </div>
+      <div class="nav-item" onclick="importBackup()">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        Import from Backup
+      </div>
+      <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFile(event)">
+    </nav>
+  </aside>
+
+  <div id="main">
+    <div id="topbar">
+      <button id="menu-toggle" onclick="toggleSidebar()">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <h2 id="page-title">Dashboard</h2>
+      <div id="topbar-actions"></div>
+    </div>
+
+    <div id="content">
+
+      <!-- DASHBOARD -->
+      <div class="panel active" id="panel-dashboard">
+        <div class="stat-grid" id="dash-stats"><div class="loading-state">Loading…</div></div>
+        <div id="dash-alerts"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Low Stock Items</span></div>
+            <div class="card-body tbl-wrap" id="dash-low-stock"><div class="loading-state">Loading…</div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Recent Receiving</span></div>
+            <div class="card-body tbl-wrap" id="dash-recent-receiving"><div class="loading-state">Loading…</div></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="card-header"><span class="card-title">Recent Waste Entries</span></div>
+          <div class="card-body tbl-wrap" id="dash-recent-waste"><div class="loading-state">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- INGREDIENTS -->
+      <div class="panel" id="panel-ingredients">
+        <div class="toolbar" style="margin-bottom:14px">
+          <div class="search-box">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="ingr-search" placeholder="Search ingredients…" oninput="renderIngredients()">
+          </div>
+          <select id="ingr-cat-filter" onchange="renderIngredients()" style="padding:6px 10px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--bg);color:var(--fg);font-size:13px;cursor:pointer">
+            <option value="">All categories</option>
+          </select>
+          <select id="ingr-status-filter" onchange="renderIngredients()" style="padding:6px 10px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--bg);color:var(--fg);font-size:13px;cursor:pointer">
+            <option value="">All statuses</option>
+            <option value="ok">In Stock</option>
+            <option value="low">Low Stock</option>
+            <option value="out">Out of Stock</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="openIngrModal()">+ Add Ingredient</button>
+        </div>
+        <div class="card">
+          <div class="card-body tbl-wrap">
+            <table>
+              <thead><tr><th>Ingredient</th><th>Category</th><th>Stock</th><th>Min</th><th>Stock Level</th><th>Purchase Unit</th><th>Cost/Unit</th><th>Value</th><th>Status</th><th></th></tr></thead>
+              <tbody id="ingr-tbody"><tr><td colspan="11"><div class="loading-state">Loading…</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- UNIT CONVERSIONS -->
+      <div class="panel" id="panel-conversions">
+        <div class="card" style="margin-bottom:14px;background:var(--gold-light);border-color:var(--gold)">
+          <div class="card-body" style="padding:12px 16px;font-size:13px;color:var(--warn)">
+            <strong>Purchase Unit Conversion Table</strong> — Shows how each ingredient's purchase package (Jar, Can, Bag…) converts to its inventory tracking unit (g or ml). Edit an ingredient to set or update its conversion.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body tbl-wrap">
+            <table>
+              <thead><tr><th>Ingredient</th><th>Category</th><th>Purchase Unit</th><th>Units per Package</th><th>Tracking Unit</th><th>Purchase Cost</th><th>Cost per Unit</th><th>Current Stock</th></tr></thead>
+              <tbody id="conv-tbody"><tr><td colspan="8"><div class="loading-state">Loading…</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECEIVING -->
+      <div class="panel" id="panel-receiving">
+        <div class="toolbar" style="margin-bottom:14px">
+          <button class="btn btn-primary btn-sm" onclick="openReceivingModal()">+ New Delivery</button>
+          <div style="flex:1"></div>
+          <div class="search-box">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="recv-search" placeholder="Search deliveries…" oninput="renderReceiving()">
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body tbl-wrap">
+            <table>
+              <thead><tr><th>Receipt ID</th><th>Date</th><th>Supplier</th><th>Invoice #</th><th>Ingredient</th><th>Qty (pkgs)</th><th>Purchase Unit</th><th>Cost/Package</th><th>Units Added</th><th>Total</th><th></th></tr></thead>
+              <tbody id="recv-tbody"><tr><td colspan="11"><div class="loading-state">Loading…</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- WASTE -->
+      <div class="panel" id="panel-waste">
+        <div class="toolbar" style="margin-bottom:14px">
+          <button class="btn btn-primary btn-sm" onclick="openWasteModal()">+ Log Waste</button>
+          <div style="flex:1"></div>
+          <div class="search-box">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="waste-search" placeholder="Search waste log…" oninput="renderWaste()">
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body tbl-wrap">
+            <table>
+              <thead><tr><th>Waste ID</th><th>Date</th><th>Ingredient</th><th>Qty</th><th>Unit</th><th>Reason</th><th>Cost</th><th>Waste Value</th><th>Notes</th><th></th></tr></thead>
+              <tbody id="waste-tbody"><tr><td colspan="10"><div class="loading-state">Loading…</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECIPES -->
+      <div class="panel" id="panel-recipes">
+        <div class="toolbar" style="margin-bottom:14px">
+          <div class="search-box">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="rec-search" placeholder="Search recipes…" oninput="renderRecipes()">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openRecipeModal()">+ Add Recipe</button>
+          <button class="btn btn-secondary btn-sm" onclick="printMenu()">Print Menu</button>
+        </div>
+        <div id="menu-print-header" style="display:none;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #3E1C00;">
+          <h2 style="font-size:18px;font-weight:700;color:#3E1C00;margin:0">Menu / Recipe List</h2>
+          <p id="menu-print-date" style="font-size:12px;color:#666;margin-top:2px"></p>
+        </div>
+        <div class="card">
+          <div class="card-body tbl-wrap">
+            <table>
+              <thead><tr><th>Menu Item</th><th>Category</th><th>Ingredients</th><th>Recipe Cost</th><th>Sell Price</th><th>Cost %</th><th class="no-print"></th></tr></thead>
+              <tbody id="rec-tbody"><tr><td colspan="6"><div class="loading-state">Loading…</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SALES -->
+      <div class="panel" id="panel-sales">
+        <div class="toolbar" style="margin-bottom:14px">
+          <button class="btn btn-primary btn-sm" onclick="openSalesModal()">+ Record Sales</button>
+          <div style="flex:1"></div>
+          <div class="search-box">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="sales-search" placeholder="Search sales log…" oninput="renderSales()">
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:14px;background:var(--gold-light);border-color:var(--gold)">
+          <div class="card-body" style="padding:12px 16px;font-size:13px;color:var(--warn)">
+            <strong>How it works:</strong> Enter the menu item and quantity sold. The system multiplies each recipe ingredient by the qty sold and deducts the total from inventory automatically.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body tbl-wrap">
+            <table>
+              <thead><tr><th>Sale ID</th><th>Date</th><th>Menu Item</th><th>Qty Sold</th><th>Recipe Cost</th><th>Revenue</th><th>Ingredients Deducted</th></tr></thead>
+              <tbody id="sales-tbody"><tr><td colspan="7"><div class="loading-state">Loading…</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORTS -->
+      <div class="panel" id="panel-reports">
+        <div id="report-print-header">
+          <h2>Bag of Beans — Inventory Report</h2>
+          <p id="report-print-date"></p>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+          <button class="btn btn-secondary btn-sm" onclick="printReport()">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            Print Report
+          </button>
+        </div>
+        <div class="stat-grid" id="report-stats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Waste by Reason</span></div>
+            <div class="card-body" id="report-waste-reason" style="padding:14px 16px"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Top Wasted Ingredients</span></div>
+            <div class="card-body" id="report-top-waste" style="padding:14px 16px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Inventory Value by Category</span></div>
+          <div class="card-body tbl-wrap" id="report-cat-value"></div>
+        </div>
+      </div>
+
+      <!-- INVENTORY REPORT -->
+      <div class="panel" id="panel-inventory-report">
+        <div id="invreport-print-header">
+          <h2>Bag of Beans — Inventory List</h2>
+          <p id="invreport-print-date"></p>
+        </div>
+        <div class="toolbar" style="margin-bottom:14px">
+          <div class="search-box">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="invr-search" placeholder="Search ingredients…" oninput="renderInventoryReport()">
+          </div>
+          <select id="invr-cat" onchange="renderInventoryReport()" style="padding:6px 10px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--bg);color:var(--fg);font-size:13px;cursor:pointer">
+            <option value="">All categories</option>
+          </select>
+          <select id="invr-status" onchange="renderInventoryReport()" style="padding:6px 10px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--bg);color:var(--fg);font-size:13px;cursor:pointer">
+            <option value="">All statuses</option>
+            <option value="ok">In Stock</option>
+            <option value="low">Low Stock</option>
+            <option value="out">Out of Stock</option>
+          </select>
+          <div style="flex:1"></div>
+          <button class="btn btn-secondary btn-sm" onclick="printInventoryReport()">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            Print
+          </button>
+        </div>
+        <div class="card">
+          <div class="card-body tbl-wrap" id="report-inventory-list"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Ingredient -->
+<div class="modal-bg" id="modal-ingr" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-ingr-title">Add Ingredient</h3>
+      <button class="modal-close" onclick="closeModal('modal-ingr')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="field"><label>Ingredient Name *</label><input id="ingr-f-name" placeholder="e.g. Whole Milk"></div>
+        <div class="field"><label>Category *</label>
+          <select id="ingr-f-cat">
+            <option value="">Select…</option>
+            <option>Dairy</option><option>Produce</option><option>Meat & Poultry</option>
+            <option>Seafood</option><option>Dry Goods</option><option>Beverages</option>
+            <option>Spirits</option><option>Wine</option><option>Beer</option>
+            <option>Oils & Condiments</option><option>Baking</option><option>Herbs & Spices</option>
+            <option>Frozen</option><option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="section-label" style="margin-top:4px;margin-bottom:8px">Purchase Unit (what you order)</div>
+      <div class="form-row col3">
+        <div class="field"><label>Purchase Unit</label>
+          <select id="ingr-f-purchase-unit" onchange="applyPurchaseUnitPreset()">
+            <optgroup label="Generic">
+              <option value="Bag">Bag</option>
+              <option value="Jar">Jar</option>
+              <option value="Can">Can</option>
+              <option value="Bottle">Bottle</option>
+              <option value="Tub">Tub</option>
+              <option value="Case">Case</option>
+              <option value="Each">Each</option>
+              <option value="Box">Box</option>
+            </optgroup>
+            <optgroup label="Weight (auto-fills tracking unit)">
+              <option value="oz">oz → tracks in oz</option>
+              <option value="lb">lb → 16 oz per lb</option>
+              <option value="kg">kg → 1000 g per kg</option>
+            </optgroup>
+            <optgroup label="Volume (auto-fills tracking unit)">
+              <option value="fl oz">fl oz → tracks in fl oz</option>
+              <option value="quart">quart → 32 fl oz per qt</option>
+              <option value="gallon">gallon → 128 fl oz per gal</option>
+              <option value="L">L → 1000 ml per L</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field"><label>Units per Package (in tracking unit)</label><input id="ingr-f-pkg-size" type="number" step="0.001" placeholder="e.g. 16" oninput="updateIngrCostCalc();updateStockHints()"></div>
+        <div class="field"><label>Purchase Cost (per pkg $)</label><input id="ingr-f-purchase-cost" type="number" step="0.01" placeholder="0.00" oninput="updateIngrCostCalc()"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Cost per unit (auto-calculated)</label><input id="ingr-f-cost" type="number" step="0.000001" placeholder="0.000000" readonly style="background:var(--border);color:var(--fg-2)"></div>
+        <div class="field"><label>Supplier</label><input id="ingr-f-supplier" placeholder="Supplier name"></div>
+      </div>
+      <div class="section-label" style="margin-top:4px;margin-bottom:8px">Current Inventory</div>
+      <div class="form-row col3">
+        <div class="field">
+          <label>Current Stock (packages) *</label>
+          <input id="ingr-f-stock" type="number" step="0.01" placeholder="0" oninput="updateStockHints()">
+          <span id="ingr-stock-hint" style="font-size:11px;color:var(--fg-3);margin-top:2px"></span>
+        </div>
+        <div class="field">
+          <label>Min Stock (packages)</label>
+          <input id="ingr-f-min" type="number" step="0.01" placeholder="0" oninput="updateStockHints()">
+          <span id="ingr-min-hint" style="font-size:11px;color:var(--fg-3);margin-top:2px"></span>
+        </div>
+        <div class="field"><label>Tracking Unit</label>
+          <select id="ingr-f-unit" onchange="updateStockHints()">
+            <optgroup label="Imperial (US)">
+              <option value="oz">oz (ounces)</option>
+              <option value="fl oz">fl oz (fluid oz)</option>
+              <option value="lb">lb (pounds)</option>
+              <option value="gallon">gallon</option>
+            </optgroup>
+            <optgroup label="Metric">
+              <option value="g">g (grams)</option>
+              <option value="ml">ml (milliliters)</option>
+              <option value="kg">kg (kilograms)</option>
+            </optgroup>
+            <optgroup label="Counted">
+              <option value="each">each</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-ingr')">Cancel</button>
+      <button class="btn btn-primary" id="ingr-save-btn" onclick="saveIngredient()">Save Ingredient</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Receiving -->
+<div class="modal-bg" id="modal-recv" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Log Delivery</h3>
+      <button class="modal-close" onclick="closeModal('modal-recv')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="field"><label>Supplier *</label><input id="recv-f-supplier" placeholder="Supplier name"></div>
+        <div class="field"><label>Invoice #</label><input id="recv-f-invoice" placeholder="INV-0001"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Date *</label><input id="recv-f-date" type="date"></div>
+        <div class="field"><label>Ingredient *</label>
+          <select id="recv-f-ingr"><option value="">Select ingredient…</option></select>
+        </div>
+      </div>
+      <div class="form-row col3">
+        <div class="field"><label>Qty Received (# packages) *</label><input id="recv-f-qty" type="number" step="1" min="1" placeholder="e.g. 3" oninput="updateRecvConversion()"></div>
+        <div class="field"><label>Purchase Unit</label><input id="recv-f-unit" placeholder="Bag" readonly style="background:var(--border);color:var(--fg-2)"></div>
+        <div class="field"><label>Cost per Package ($)</label><input id="recv-f-cost" type="number" step="0.01" placeholder="0.00" oninput="updateRecvConversion()"></div>
+      </div>
+      <div id="recv-conversion-preview"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-recv')">Cancel</button>
+      <button class="btn btn-primary" id="recv-save-btn" onclick="saveReceiving()">Post & Update Stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Waste -->
+<div class="modal-bg" id="modal-waste" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Log Waste / Spoilage</h3>
+      <button class="modal-close" onclick="closeModal('modal-waste')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="field"><label>Ingredient *</label>
+          <select id="waste-f-ingr"><option value="">Select ingredient…</option></select>
+        </div>
+        <div class="field"><label>Date *</label><input id="waste-f-date" type="date"></div>
+      </div>
+      <div class="form-row col3">
+        <div class="field"><label>Qty Wasted (g or ml) *</label><input id="waste-f-qty" type="number" step="0.1" placeholder="0"></div>
+        <div class="field"><label>Tracking Unit</label><input id="waste-f-unit" placeholder="g" readonly style="background:var(--border);color:var(--fg-2)"></div>
+        <div class="field"><label>Reason</label>
+          <select id="waste-f-reason">
+            <option>Expired</option><option>Prep Waste</option><option>Spoilage</option>
+            <option>Over-Production</option><option>Dropped/Spilled</option><option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row col1">
+        <div class="field"><label>Notes</label><input id="waste-f-notes" placeholder="Optional note"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-waste')">Cancel</button>
+      <button class="btn btn-primary" id="waste-save-btn" onclick="saveWaste()">Log Waste & Deduct Stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Sales -->
+<div class="modal-bg" id="modal-sales" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Record Sales</h3>
+      <button class="modal-close" onclick="closeModal('modal-sales')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="field"><label>Date *</label><input id="sales-f-date" type="date"></div>
+        <div class="field"><label>Menu Item (Recipe) *</label>
+          <select id="sales-f-recipe"><option value="">Select recipe…</option></select>
+        </div>
+      </div>
+      <div class="form-row col1">
+        <div class="field"><label>Quantity Sold *</label><input id="sales-f-qty" type="number" min="1" step="1" placeholder="e.g. 12"></div>
+      </div>
+      <div id="sales-preview" style="margin-top:4px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-sales')">Cancel</button>
+      <button class="btn btn-primary" id="sales-save-btn" onclick="saveSales()">Post Sales & Deduct Stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Recipe -->
+<div class="modal-bg" id="modal-rec" hidden>
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h3 id="modal-rec-title">Add Recipe</h3>
+      <button class="modal-close" onclick="closeModal('modal-rec')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="field"><label>Menu Item Name *</label><input id="rec-f-name" placeholder="e.g. Flat White"></div>
+        <div class="field"><label>Category</label>
+          <select id="rec-f-cat">
+            <option>Coffee</option><option>Specialty Coffee</option><option>Tea</option>
+            <option>Cold Drinks</option><option>Breakfast</option><option>Lunch</option>
+            <option>Dinner</option><option>Dessert</option><option>Bakery</option><option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row col1">
+        <div class="field"><label>Sell Price ($)</label><input id="rec-f-price" type="number" step="0.01" placeholder="0.00"></div>
+      </div>
+      <div>
+        <div class="section-label">Ingredients</div>
+        <div id="rec-ingr-list"></div>
+        <button class="btn btn-secondary btn-sm" onclick="addRecipeIngredientRow()" style="margin-top:8px">+ Add Ingredient</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-rec')">Cancel</button>
+      <button class="btn btn-primary" id="rec-save-btn" onclick="saveRecipe()">Save Recipe</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Supabase ──────────────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient(
+  'https://poygsnllttfqayyoazka.supabase.co',
+  'sb_publishable_h5B3kO7-qeRSHJ28kwV9vg_XKhLfV-N'
+);
+
+// ── In-memory cache ───────────────────────────────────────────
+let ingredients = [];
+let receivings  = [];
+let wastes      = [];
+let recipes     = [];
+let sales       = [];
+
+// ── DB row ↔ app object mappers ───────────────────────────────
+const mapIngr = r => ({ id:r.id, name:r.name, category:r.category, stock:+r.stock, min:+r.min_stock, unit:r.unit||'g', cost:+r.cost, supplier:r.supplier||'', purchaseUnit:r.purchase_unit||'Bag', gMlPerPackage:+(r.g_ml_per_package||1), purchaseCost:+(r.purchase_cost||0) });
+const mapRecv = r => ({ id:r.id, date:r.date, supplier:r.supplier, invoice:r.invoice||'', ingredientId:r.ingredient_id, qty:+r.qty, unit:r.unit, unitCost:+r.unit_cost, total:+r.total });
+const mapWaste= r => ({ id:r.id, date:r.date, ingredientId:r.ingredient_id, qty:+r.qty, unit:r.unit, reason:r.reason, unitCost:+r.unit_cost, wasteValue:+r.waste_value, notes:r.notes||'' });
+const mapRec  = r => ({ id:r.id, name:r.name, category:r.category, sellPrice:+r.sell_price, ingredients:r.ingredients||[] });
+const mapSale = r => ({ id:r.id, date:r.date, recipeId:r.recipe_id, recipeName:r.recipe_name, qtySold:+r.qty_sold, totalCost:+r.total_cost, totalRevenue:+r.total_revenue, ingredientsDeducted:r.ingredients_deducted||[] });
+
+// ── Helpers ───────────────────────────────────────────────────
+const today    = () => new Date().toISOString().slice(0,10);
+const fmtDate  = s => { if(!s)return'—'; const[y,m,d]=s.split('-'); return`${m}/${d}/${y}`; };
+const fmtCurr  = n => '$'+(+n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+const fmtNum   = (n,d=2) => (+n||0).toFixed(d);
+const uid      = p => p+'-'+Date.now().toString(36).toUpperCase();
+const ingrById = id => ingredients.find(i=>i.id===id);
+
+function stockStatus(i){ if(i.stock<=0)return'out'; if(i.min>0&&i.stock<=i.min)return'low'; return'ok'; }
+function stockPct(i){ if(!i.min||i.min<=0)return i.stock>0?80:0; return Math.min(100,(i.stock/(i.min*2))*100); }
+function statusBadge(s){ if(s==='out')return'<span class="badge badge-crit">Out of Stock</span>'; if(s==='low')return'<span class="badge badge-warn">Low Stock</span>'; return'<span class="badge badge-ok">In Stock</span>'; }
+
+// ── Connection status UI ──────────────────────────────────────
+function setConn(state, label) {
+  const dot = document.getElementById('conn-dot');
+  document.getElementById('conn-label').textContent = label;
+  dot.className = state === 'ok' ? '' : state === 'err' ? 'err' : 'loading';
+}
+
+// ── Seed sample data (only if tables are empty) ───────────────
+async function seedIfEmpty() {
+  const { count } = await sb.from('ingredients').select('*', { count:'exact', head:true });
+  if (count > 0) return;
+  const sampleIngr = [
+    {id:'I001',name:'Espresso Beans',    category:'Dry Goods',      stock:12,   min_stock:5,  unit:'lb',    cost:14.50,supplier:'Coffee Direct'},
+    {id:'I002',name:'Whole Milk',         category:'Dairy',          stock:8,    min_stock:10, unit:'gallon',cost:4.20, supplier:'Dairy Fresh'},
+    {id:'I003',name:'Oat Milk',           category:'Dairy',          stock:3,    min_stock:6,  unit:'gallon',cost:6.80, supplier:'Dairy Fresh'},
+    {id:'I004',name:'Heavy Cream',        category:'Dairy',          stock:4,    min_stock:4,  unit:'qt',    cost:3.50, supplier:'Dairy Fresh'},
+    {id:'I005',name:'Vanilla Syrup',      category:'Beverages',      stock:6,    min_stock:3,  unit:'bottle',cost:7.25, supplier:'Bar Supplies'},
+    {id:'I006',name:'Caramel Sauce',      category:'Baking',         stock:2,    min_stock:4,  unit:'bottle',cost:5.50, supplier:'Bar Supplies'},
+    {id:'I007',name:'Sourdough Bread',    category:'Dry Goods',      stock:5,    min_stock:4,  unit:'loaf',  cost:4.00, supplier:'City Bakery'},
+    {id:'I008',name:'Free Range Eggs',    category:'Produce',        stock:36,   min_stock:24, unit:'each',  cost:0.45, supplier:'Farm Direct'},
+    {id:'I009',name:'Smoked Salmon',      category:'Seafood',        stock:1.5,  min_stock:2,  unit:'lb',    cost:18.00,supplier:'Seafood Co.'},
+    {id:'I010',name:'Avocado',            category:'Produce',        stock:12,   min_stock:12, unit:'each',  cost:1.20, supplier:'Produce Plus'},
+    {id:'I011',name:'Cheddar Cheese',     category:'Dairy',          stock:3,    min_stock:4,  unit:'lb',    cost:6.50, supplier:'Dairy Fresh'},
+    {id:'I012',name:'Streaky Bacon',      category:'Meat & Poultry', stock:4,    min_stock:5,  unit:'lb',    cost:7.80, supplier:'Butchers Best'},
+    {id:'I013',name:'Matcha Powder',      category:'Dry Goods',      stock:0.8,  min_stock:1,  unit:'lb',    cost:28.00,supplier:'Tea House'},
+    {id:'I014',name:'Chocolate Syrup',    category:'Baking',         stock:3,    min_stock:2,  unit:'bottle',cost:5.00, supplier:'Bar Supplies'},
+    {id:'I015',name:'Sparkling Water',    category:'Beverages',      stock:24,   min_stock:12, unit:'bottle',cost:0.95, supplier:'Drinks Direct'},
+  ];
+  await sb.from('ingredients').insert(sampleIngr);
+  await sb.from('recipes').insert([
+    {id:'R001',name:'Flat White',         category:'Coffee',           sell_price:4.50, ingredients:[{id:'I001',qty:0.4,unit:'oz'},{id:'I002',qty:6,unit:'oz'}]},
+    {id:'R002',name:'Oat Latte',          category:'Coffee',           sell_price:5.50, ingredients:[{id:'I001',qty:0.4,unit:'oz'},{id:'I003',qty:6,unit:'oz'},{id:'I005',qty:0.5,unit:'oz'}]},
+    {id:'R003',name:'Iced Matcha',        category:'Specialty Coffee', sell_price:6.00, ingredients:[{id:'I013',qty:0.1,unit:'oz'},{id:'I003',qty:6,unit:'oz'},{id:'I005',qty:0.5,unit:'oz'}]},
+    {id:'R004',name:'Smoked Salmon Bagel',category:'Breakfast',        sell_price:13.50,ingredients:[{id:'I007',qty:0.5,unit:'loaf'},{id:'I009',qty:0.2,unit:'lb'},{id:'I010',qty:1,unit:'each'}]},
+    {id:'R005',name:'Avocado Toast',      category:'Breakfast',        sell_price:11.00,ingredients:[{id:'I007',qty:0.5,unit:'loaf'},{id:'I010',qty:1,unit:'each'},{id:'I008',qty:2,unit:'each'}]},
+  ]);
+}
+
+// ── Load all data from Supabase ───────────────────────────────
+async function loadAll() {
+  const [ri, rr, rw, rc, rs] = await Promise.all([
+    sb.from('ingredients').select('*').order('name'),
+    sb.from('receivings').select('*').order('date', { ascending:false }),
+    sb.from('wastes').select('*').order('date', { ascending:false }),
+    sb.from('recipes').select('*').order('name'),
+    sb.from('sales').select('*').order('date', { ascending:false }),
+  ]);
+  if (ri.error) throw ri.error;
+  ingredients = ri.data.map(mapIngr);
+  receivings  = rr.data.map(mapRecv);
+  wastes      = rw.data.map(mapWaste);
+  recipes     = rc.data.map(mapRec);
+  sales       = (rs.data||[]).map(mapSale);
+}
+
+// ── Navigation ────────────────────────────────────────────────
+function navigate(panel) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('panel-'+panel).classList.add('active');
+  document.querySelector(`[data-panel="${panel}"]`).classList.add('active');
+  const titles = {dashboard:'Dashboard',ingredients:'Ingredients',conversions:'Unit Conversions',receiving:'Receiving',waste:'Waste & Spoilage',recipes:'Recipes',sales:'Record Sales',reports:'Reports','inventory-report':'Inventory List'};
+  document.getElementById('page-title').textContent = titles[panel]||panel;
+  if (panel==='dashboard')              renderDashboard();
+  else if (panel==='ingredients')       renderIngredients();
+  else if (panel==='conversions')       renderConversions();
+  else if (panel==='receiving')         renderReceiving();
+  else if (panel==='waste')             renderWaste();
+  else if (panel==='recipes')           renderRecipes();
+  else if (panel==='sales')             renderSales();
+  else if (panel==='reports')           renderReports();
+  else if (panel==='inventory-report')  renderInventoryReport();
+  closeSidebar();
+}
+document.querySelectorAll('.nav-item').forEach(el => el.addEventListener('click', ()=>navigate(el.dataset.panel)));
+function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); }
+function closeSidebar()  { document.getElementById('sidebar').classList.remove('open'); }
+
+// ── Toast ─────────────────────────────────────────────────────
+function toast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isErr ? 'var(--danger)' : 'var(--fg)';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+function openModal(id) { document.getElementById(id).hidden = false; }
+function closeModal(id) { document.getElementById(id).hidden = true; }
+function setBtn(id, loading) {
+  const b = document.getElementById(id);
+  if (!b) return;
+  b.disabled = loading;
+  if (loading) b.dataset.orig = b.textContent, b.textContent = 'Saving…';
+  else b.textContent = b.dataset.orig || b.textContent;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DASHBOARD
+// ══════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const totalVal  = ingredients.reduce((s,i)=>s+(i.stock*i.cost),0);
+  const lowItems  = ingredients.filter(i=>stockStatus(i)==='low').length;
+  const outItems  = ingredients.filter(i=>stockStatus(i)==='out').length;
+  const now = new Date();
+  const thisMonthWaste = wastes.filter(w=>{ const d=new Date(w.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); }).reduce((s,w)=>s+(w.wasteValue||0),0);
+  const recvTotal = receivings.slice(0,30).reduce((s,r)=>s+(r.total||0),0);
+
+  document.getElementById('dash-stats').innerHTML = `
+    <div class="stat-tile"><div class="label">Inventory Value</div><div class="value">${fmtCurr(totalVal)}</div><div class="sub">${ingredients.length} ingredients tracked</div></div>
+    <div class="stat-tile"><div class="label">Low Stock Alerts</div><div class="value" style="color:var(--warn)">${lowItems+outItems}</div><div class="sub">${outItems} out · ${lowItems} low</div></div>
+    <div class="stat-tile"><div class="label">Waste This Month</div><div class="value" style="color:var(--danger)">${fmtCurr(thisMonthWaste)}</div><div class="sub">${wastes.filter(w=>{const d=new Date(w.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}).length} events</div></div>
+    <div class="stat-tile"><div class="label">Recent Receiving</div><div class="value">${fmtCurr(recvTotal)}</div><div class="sub">${receivings.length} deliveries total</div></div>`;
+
+  const alerts = ingredients.filter(i=>stockStatus(i)!=='ok');
+  document.getElementById('dash-alerts').innerHTML = alerts.length
+    ? `<div class="alert-strip"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg><strong>${alerts.length} item${alerts.length>1?'s':''} need attention:</strong> ${alerts.map(i=>`<em>${i.name}</em>`).join(', ')}</div>` : '';
+
+  const lowStock = ingredients.filter(i=>stockStatus(i)!=='ok').slice(0,8);
+  document.getElementById('dash-low-stock').innerHTML = lowStock.length
+    ? `<table><thead><tr><th>Ingredient</th><th>Stock</th><th>Min</th><th>Status</th></tr></thead><tbody>${lowStock.map(i=>{const ps=i.gMlPerPackage>1?i.gMlPerPackage:1,dp=i.unit==='each'?0:2;const sDisp=i.gMlPerPackage>1?`${fmtNum(i.stock/ps,i.stock/ps%1===0?0:2)} ${i.purchaseUnit} <span style="color:var(--fg-3);font-size:11px">(${fmtNum(i.stock,dp)} ${i.unit})</span>`:`${fmtNum(i.stock,dp)} ${i.unit}`;const mDisp=i.gMlPerPackage>1?`${fmtNum(i.min/ps,i.min/ps%1===0?0:2)} ${i.purchaseUnit}`:`${fmtNum(i.min,dp)} ${i.unit}`;return`<tr><td>${i.name}</td><td class="mono">${sDisp}</td><td class="mono">${mDisp}</td><td>${statusBadge(stockStatus(i))}</td></tr>`;}).join('')}</tbody></table>`
+    : '<div class="empty-state"><p>All items in stock ✓</p></div>';
+
+  const recentRecv = receivings.slice(0,5);
+  document.getElementById('dash-recent-receiving').innerHTML = recentRecv.length
+    ? `<table><thead><tr><th>Date</th><th>Supplier</th><th>Item</th><th>Total</th></tr></thead><tbody>${recentRecv.map(r=>{const i=ingrById(r.ingredientId);return`<tr><td>${fmtDate(r.date)}</td><td>${r.supplier}</td><td>${i?i.name:r.ingredientId}</td><td class="mono">${fmtCurr(r.total)}</td></tr>`;}).join('')}</tbody></table>`
+    : '<div class="empty-state"><p>No deliveries yet</p></div>';
+
+  const recentWaste = wastes.slice(0,5);
+  document.getElementById('dash-recent-waste').innerHTML = recentWaste.length
+    ? `<table><thead><tr><th>Date</th><th>Ingredient</th><th>Qty</th><th>Reason</th><th>Value Lost</th></tr></thead><tbody>${recentWaste.map(w=>{const i=ingrById(w.ingredientId);return`<tr><td>${fmtDate(w.date)}</td><td>${i?i.name:w.ingredientId}</td><td class="mono">${fmtNum(w.qty,2)} ${w.unit}</td><td><span class="chip">${w.reason}</span></td><td class="mono" style="color:var(--danger)">${fmtCurr(w.wasteValue)}</td></tr>`;}).join('')}</tbody></table>`
+    : '<div class="empty-state"><p>No waste logged yet</p></div>';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  INGREDIENTS
+// ══════════════════════════════════════════════════════════════
+function renderIngredients() {
+  const q    = (document.getElementById('ingr-search').value||'').toLowerCase();
+  const cat  = document.getElementById('ingr-cat-filter').value;
+  const stat = document.getElementById('ingr-status-filter').value;
+  const cats = [...new Set(ingredients.map(i=>i.category))].sort();
+  const catSel = document.getElementById('ingr-cat-filter');
+  const cur = catSel.value;
+  catSel.innerHTML = '<option value="">All categories</option>' + cats.map(c=>`<option${c===cur?' selected':''}>${c}</option>`).join('');
+  let rows = ingredients.filter(i=>{
+    if (q && !i.name.toLowerCase().includes(q) && !(i.category||'').toLowerCase().includes(q)) return false;
+    if (cat && i.category !== cat) return false;
+    if (stat && stockStatus(i) !== stat) return false;
+    return true;
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+  const tbody = document.getElementById('ingr-tbody');
+  if (!rows.length) { tbody.innerHTML=`<tr><td colspan="11"><div class="empty-state"><p>No ingredients found.</p></div></td></tr>`; return; }
+  tbody.innerHTML = rows.map(i=>{
+    const s=stockStatus(i), pct=stockPct(i), val=i.stock*i.cost;
+    const fc=s==='out'?'crit':s==='low'?'warn':'';
+    const pkgInfo = i.gMlPerPackage>1 ? `<span class="chip">${i.purchaseUnit}</span><span style="font-size:11px;color:var(--fg-3);margin-left:4px">${i.gMlPerPackage}${i.unit}</span>` : `<span style="color:var(--fg-3);font-size:11px">not set</span>`;
+    const pkgSize2 = i.gMlPerPackage > 1 ? i.gMlPerPackage : 1;
+    const stockPkgs = i.stock / pkgSize2;
+    const minPkgs   = i.min   / pkgSize2;
+    const dp = i.unit === 'each' ? 0 : 2;
+    const stockDisplay = i.gMlPerPackage > 1
+      ? `${fmtNum(stockPkgs, stockPkgs % 1 === 0 ? 0 : 2)} ${i.purchaseUnit} <span style="color:var(--fg-3);font-size:11px">(${fmtNum(i.stock,dp)} ${i.unit})</span>`
+      : `${fmtNum(i.stock,dp)} ${i.unit}`;
+    const minDisplay = i.gMlPerPackage > 1
+      ? `${fmtNum(minPkgs, minPkgs % 1 === 0 ? 0 : 2)} ${i.purchaseUnit}`
+      : `${fmtNum(i.min,dp)} ${i.unit}`;
+    return `<tr><td><strong>${i.name}</strong></td><td><span class="chip">${i.category}</span></td><td class="mono">${stockDisplay}</td><td class="mono">${minDisplay}</td><td style="min-width:80px"><div class="stock-bar"><div class="stock-fill ${fc}" style="width:${pct.toFixed(0)}%"></div></div></td><td>${pkgInfo}</td><td class="mono">${fmtCurr(i.cost)}/${i.unit}</td><td class="mono">${fmtCurr(val)}</td><td>${statusBadge(s)}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick='editIngredient("${i.id}")'>Edit</button> <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" onclick='deleteIngredient("${i.id}")'>Delete</button></td></tr>`;
+  }).join('');
+}
+
+const UNIT_PRESETS = {
+  'oz':     { pkgSize: 1,    trackUnit: 'oz'   },
+  'lb':     { pkgSize: 16,   trackUnit: 'oz'   },
+  'fl oz':  { pkgSize: 1,    trackUnit: 'fl oz'},
+  'quart':  { pkgSize: 32,   trackUnit: 'fl oz'},
+  'gallon': { pkgSize: 128,  trackUnit: 'fl oz'},
+  'kg':     { pkgSize: 1000, trackUnit: 'g'    },
+  'L':      { pkgSize: 1000, trackUnit: 'ml'   },
+};
+function updateStockHints() {
+  const pkgSize = parseFloat(document.getElementById('ingr-f-pkg-size').value) || 1;
+  const unit    = document.getElementById('ingr-f-unit').value || 'oz';
+  const stock   = parseFloat(document.getElementById('ingr-f-stock').value) || 0;
+  const min     = parseFloat(document.getElementById('ingr-f-min').value) || 0;
+  const dp = unit === 'each' ? 0 : 2;
+  const sh = document.getElementById('ingr-stock-hint');
+  const mh = document.getElementById('ingr-min-hint');
+  if (sh) sh.textContent = stock > 0 && pkgSize > 1 ? `= ${fmtNum(stock * pkgSize, dp)} ${unit} total` : '';
+  if (mh) mh.textContent = min   > 0 && pkgSize > 1 ? `= ${fmtNum(min   * pkgSize, dp)} ${unit} total` : '';
+}
+function applyPurchaseUnitPreset() {
+  const pu = document.getElementById('ingr-f-purchase-unit').value;
+  const preset = UNIT_PRESETS[pu];
+  if (preset) {
+    document.getElementById('ingr-f-pkg-size').value = preset.pkgSize;
+    document.getElementById('ingr-f-unit').value = preset.trackUnit;
+    updateIngrCostCalc();
+    updateStockHints();
+  }
+}
+function updateIngrCostCalc() {
+  const pkgSize = parseFloat(document.getElementById('ingr-f-pkg-size').value)||0;
+  const pkgCost = parseFloat(document.getElementById('ingr-f-purchase-cost').value)||0;
+  if (pkgSize > 0 && pkgCost > 0) {
+    document.getElementById('ingr-f-cost').value = (pkgCost / pkgSize).toFixed(6);
+  }
+}
+
+let editingIngrId = null, editingRecvId = null, editingWasteId = null;
+function openIngrModal(id) {
+  editingIngrId = id||null;
+  document.getElementById('modal-ingr-title').textContent = id ? 'Edit Ingredient' : 'Add Ingredient';
+  if (id) {
+    const i = ingrById(id);
+    const pkgSize = i.gMlPerPackage > 1 ? i.gMlPerPackage : 1;
+    document.getElementById('ingr-f-name').value          = i.name;
+    document.getElementById('ingr-f-cat').value           = i.category;
+    document.getElementById('ingr-f-purchase-unit').value = i.purchaseUnit;
+    document.getElementById('ingr-f-pkg-size').value      = i.gMlPerPackage > 1 ? i.gMlPerPackage : '';
+    document.getElementById('ingr-f-purchase-cost').value = i.purchaseCost > 0 ? i.purchaseCost : '';
+    document.getElementById('ingr-f-cost').value          = i.cost;
+    document.getElementById('ingr-f-supplier').value      = i.supplier;
+    document.getElementById('ingr-f-stock').value         = +( i.stock / pkgSize ).toFixed(3);
+    document.getElementById('ingr-f-min').value           = +( i.min   / pkgSize ).toFixed(3);
+    document.getElementById('ingr-f-unit').value          = i.unit;
+  } else {
+    ['ingr-f-name','ingr-f-stock','ingr-f-min','ingr-f-pkg-size','ingr-f-purchase-cost','ingr-f-cost','ingr-f-supplier'].forEach(fid=>{ const el=document.getElementById(fid); if(el)el.value=''; });
+    document.getElementById('ingr-f-unit').value = 'oz';
+    document.getElementById('ingr-f-purchase-unit').value = 'Bag';
+  }
+  updateStockHints();
+  openModal('modal-ingr');
+}
+function editIngredient(id) { openIngrModal(id); }
+async function deleteIngredient(id) {
+  const i = ingredients.find(x=>x.id===id);
+  if (!i||!confirm(`Delete "${i.name}"? This cannot be undone.`)) return;
+  const {error} = await sb.from('ingredients').delete().eq('id',id);
+  if (error) { toast('Error: '+error.message,true); return; }
+  await loadAll(); renderIngredients();
+  toast('Ingredient deleted');
+}
+async function deleteRecipe(id) {
+  const r = recipes.find(x=>x.id===id);
+  if (!r||!confirm(`Delete "${r.name}"? This cannot be undone.`)) return;
+  const {error} = await sb.from('recipes').delete().eq('id',id);
+  if (error) { toast('Error: '+error.message,true); return; }
+  await loadAll(); renderRecipes();
+  toast('Recipe deleted');
+}
+async function saveIngredient() {
+  const name         = document.getElementById('ingr-f-name').value.trim();
+  const category     = document.getElementById('ingr-f-cat').value;
+  const pkgStockQty  = parseFloat(document.getElementById('ingr-f-stock').value)||0;
+  const pkgMinQty    = parseFloat(document.getElementById('ingr-f-min').value)||0;
+  const unit         = document.getElementById('ingr-f-unit').value||'oz';
+  const purchaseUnit = document.getElementById('ingr-f-purchase-unit').value||'Bag';
+  const pkgSize      = parseFloat(document.getElementById('ingr-f-pkg-size').value)||1;
+  const purchaseCost = parseFloat(document.getElementById('ingr-f-purchase-cost').value)||0;
+  const cost         = parseFloat(document.getElementById('ingr-f-cost').value)||(purchaseCost>0&&pkgSize>0 ? purchaseCost/pkgSize : 0);
+  const stock        = +(pkgStockQty * pkgSize).toFixed(4);
+  const min          = +(pkgMinQty   * pkgSize).toFixed(4);
+  const supplier     = document.getElementById('ingr-f-supplier').value.trim();
+  if (!name)     { toast('Ingredient name is required',true); return; }
+  if (!category) { toast('Category is required',true); return; }
+  setBtn('ingr-save-btn', true);
+  const row = { name, category, stock, min_stock:min, unit, cost, supplier, purchase_unit:purchaseUnit, g_ml_per_package:pkgSize, purchase_cost:purchaseCost };
+  let err;
+  if (editingIngrId) {
+    const {error} = await sb.from('ingredients').update(row).eq('id', editingIngrId);
+    err = error;
+  } else {
+    const newId = 'I' + String(ingredients.length+1).padStart(3,'0') + Date.now().toString(36).slice(-3).toUpperCase();
+    const {error} = await sb.from('ingredients').insert({id:newId, ...row});
+    err = error;
+  }
+  setBtn('ingr-save-btn', false);
+  if (err) { toast('Error: '+err.message, true); return; }
+  await loadAll();
+  closeModal('modal-ingr');
+  renderIngredients();
+  toast(editingIngrId ? 'Ingredient updated' : 'Ingredient added');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RECEIVING
+// ══════════════════════════════════════════════════════════════
+function renderReceiving() {
+  const q = (document.getElementById('recv-search').value||'').toLowerCase();
+  let rows = receivings;
+  if (q) rows = rows.filter(r=>{ const i=ingrById(r.ingredientId); return (i&&i.name.toLowerCase().includes(q))||r.supplier.toLowerCase().includes(q)||(r.invoice||'').toLowerCase().includes(q); });
+  const tbody = document.getElementById('recv-tbody');
+  if (!rows.length) { tbody.innerHTML=`<tr><td colspan="11"><div class="empty-state"><p>No deliveries logged yet.</p></div></td></tr>`; return; }
+  tbody.innerHTML = rows.map(r=>{ const i=ingrById(r.ingredientId); const gmlAdded = i&&i.gMlPerPackage>1 ? `${fmtNum(r.qty*i.gMlPerPackage,1)} ${i.unit}` : '—'; return`<tr><td class="mono">${r.id}</td><td>${fmtDate(r.date)}</td><td>${r.supplier}</td><td class="mono">${r.invoice||'—'}</td><td>${i?i.name:r.ingredientId}</td><td class="mono">${fmtNum(r.qty,0)}</td><td>${r.unit}</td><td class="mono">${fmtCurr(r.unitCost)}</td><td class="mono" style="color:var(--ok)">${gmlAdded}</td><td class="mono"><strong>${fmtCurr(r.total)}</strong></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick='editReceiving("${r.id}")'>Edit</button> <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" onclick='deleteReceiving("${r.id}")'>Delete</button></td></tr>`; }).join('');
+}
+function updateRecvConversion() {
+  const ingrId = document.getElementById('recv-f-ingr').value;
+  const qty    = parseFloat(document.getElementById('recv-f-qty').value)||0;
+  const cost   = parseFloat(document.getElementById('recv-f-cost').value)||0;
+  const prev   = document.getElementById('recv-conversion-preview');
+  if (!ingrId || qty <= 0) { prev.innerHTML=''; return; }
+  const i = ingrById(ingrId);
+  if (!i) return;
+  const totalGml    = qty * i.gMlPerPackage;
+  const costPerGml  = (i.gMlPerPackage > 0 && cost > 0) ? cost / i.gMlPerPackage : i.cost;
+  const totalSpend  = qty * cost;
+  const dp = i.unit==='each' ? 0 : 1;
+  prev.innerHTML = `<div style="background:var(--gold-light);border:1px solid var(--gold);border-radius:var(--r);padding:8px 12px;margin-top:8px;font-size:12px">
+    <strong>${qty} ${i.purchaseUnit}${qty!==1?'s':''}</strong> × ${i.gMlPerPackage} ${i.unit}/pkg = <strong>+${totalGml.toFixed(dp)} ${i.unit}</strong> added to stock&emsp;·&emsp;
+    Cost per ${i.unit}: <strong>$${costPerGml.toFixed(i.unit==='each'?4:6)}</strong>&emsp;·&emsp;Total spend: <strong>$${totalSpend.toFixed(2)}</strong>
+  </div>`;
+}
+function openReceivingModal(id) {
+  editingRecvId = id||null;
+  const r = id ? receivings.find(x=>x.id===id) : null;
+  document.getElementById('recv-f-date').value = r ? r.date : today();
+  document.getElementById('recv-f-supplier').value = r ? r.supplier : '';
+  document.getElementById('recv-f-invoice').value = r ? (r.invoice||'') : '';
+  document.getElementById('recv-f-qty').value = r ? r.qty : '';
+  document.getElementById('recv-f-cost').value = r ? r.unitCost : '';
+  document.getElementById('recv-conversion-preview').innerHTML = '';
+  const sel = document.getElementById('recv-f-ingr');
+  sel.innerHTML = '<option value="">Select ingredient…</option>' + [...ingredients].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}"${r&&r.ingredientId===i.id?' selected':''}>${i.name} (${i.unit})</option>`).join('');
+  sel.onchange = function(){
+    const i = ingrById(this.value);
+    if (i) { document.getElementById('recv-f-unit').value=i.purchaseUnit; document.getElementById('recv-f-cost').value=i.purchaseCost>0?i.purchaseCost.toFixed(2):''; }
+    updateRecvConversion();
+  };
+  if(r){const ing=ingrById(r.ingredientId);if(ing)document.getElementById('recv-f-unit').value=ing.purchaseUnit;}
+  updateRecvConversion();
+  openModal('modal-recv');
+}
+function editReceiving(id){openReceivingModal(id);}
+async function deleteReceiving(id) {
+  if(!confirm('Delete this delivery? Stock will be adjusted.'))return;
+  const r=receivings.find(x=>x.id===id); if(!r)return;
+  const i=ingrById(r.ingredientId);
+  await sb.from('receivings').delete().eq('id',id);
+  if(i){const unitsAdded=+(r.qty*(i.gMlPerPackage||1)).toFixed(4);await sb.from('ingredients').update({stock:Math.max(0,+(i.stock-unitsAdded).toFixed(4))}).eq('id',i.id);}
+  await loadAll(); renderReceiving(); toast('Delivery deleted');
+}
+async function saveReceiving() {
+  const supplier    = document.getElementById('recv-f-supplier').value.trim();
+  const invoice     = document.getElementById('recv-f-invoice').value.trim();
+  const date        = document.getElementById('recv-f-date').value;
+  const ingrId      = document.getElementById('recv-f-ingr').value;
+  const pkgQty      = parseFloat(document.getElementById('recv-f-qty').value)||0;
+  const pkgCost     = parseFloat(document.getElementById('recv-f-cost').value)||0;
+  if (!supplier) { toast('Supplier is required',true); return; }
+  if (!ingrId)   { toast('Select an ingredient',true); return; }
+  if (pkgQty<=0) { toast('Qty must be > 0',true); return; }
+  const i = ingrById(ingrId); if (!i) return;
+  setBtn('recv-save-btn', true);
+  const gmlAdded   = +(pkgQty * i.gMlPerPackage).toFixed(4);
+  const costPerGml = i.gMlPerPackage > 0 && pkgCost > 0 ? pkgCost / i.gMlPerPackage : i.cost;
+  const total      = pkgQty * pkgCost;
+  if(editingRecvId) {
+    const old=receivings.find(x=>x.id===editingRecvId);
+    if(old){const oldIngr=ingrById(old.ingredientId);if(oldIngr){const oldUnits=+(old.qty*(oldIngr.gMlPerPackage||1)).toFixed(4);await sb.from('ingredients').update({stock:Math.max(0,+(oldIngr.stock-oldUnits).toFixed(4))}).eq('id',oldIngr.id);}}
+    await sb.from('receivings').update({date,supplier,invoice,ingredient_id:ingrId,qty:pkgQty,unit:i.purchaseUnit,unit_cost:pkgCost,total}).eq('id',editingRecvId);
+  } else {
+    const {error:e1} = await sb.from('receivings').insert({id:uid('RCV'),date,supplier,invoice,ingredient_id:ingrId,qty:pkgQty,unit:i.purchaseUnit,unit_cost:pkgCost,total});
+    if(e1){setBtn('recv-save-btn',false);toast('Error: '+e1.message,true);return;}
+  }
+  await loadAll();
+  const freshIngr=ingrById(ingrId);
+  const newStock = +((freshIngr?freshIngr.stock:0)+gmlAdded).toFixed(4);
+  const upd = {stock:newStock};
+  if(pkgCost>0){upd.cost=costPerGml;upd.purchase_cost=pkgCost;}
+  await sb.from('ingredients').update(upd).eq('id',ingrId);
+  await loadAll();
+  setBtn('recv-save-btn', false);
+  closeModal('modal-recv');
+  renderReceiving();
+  toast(`Delivery ${editingRecvId?'updated':'posted'} — ${i.name} +${gmlAdded} ${i.unit}`);
+  editingRecvId=null;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  WASTE
+// ══════════════════════════════════════════════════════════════
+function renderWaste() {
+  const q = (document.getElementById('waste-search').value||'').toLowerCase();
+  let rows = wastes;
+  if (q) rows = rows.filter(w=>{ const i=ingrById(w.ingredientId); return (i&&i.name.toLowerCase().includes(q))||w.reason.toLowerCase().includes(q)||(w.notes||'').toLowerCase().includes(q); });
+  const tbody = document.getElementById('waste-tbody');
+  if (!rows.length) { tbody.innerHTML=`<tr><td colspan="10"><div class="empty-state"><p>No waste logged yet.</p></div></td></tr>`; return; }
+  tbody.innerHTML = rows.map(w=>{ const i=ingrById(w.ingredientId); return`<tr><td class="mono">${w.id}</td><td>${fmtDate(w.date)}</td><td>${i?i.name:w.ingredientId}</td><td class="mono">${fmtNum(w.qty,2)}</td><td>${w.unit}</td><td><span class="chip">${w.reason}</span></td><td class="mono">${fmtCurr(w.unitCost)}</td><td class="mono" style="color:var(--danger)"><strong>${fmtCurr(w.wasteValue)}</strong></td><td style="color:var(--fg-3)">${w.notes||'—'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick='editWaste("${w.id}")'>Edit</button> <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" onclick='deleteWaste("${w.id}")'>Delete</button></td></tr>`; }).join('');
+}
+function openWasteModal(id) {
+  editingWasteId=id||null;
+  const w=id?wastes.find(x=>x.id===id):null;
+  document.getElementById('waste-f-date').value=w?w.date:today();
+  document.getElementById('waste-f-qty').value=w?w.qty:'';
+  document.getElementById('waste-f-notes').value=w?w.notes:'';
+  const sel=document.getElementById('waste-f-ingr');
+  sel.innerHTML='<option value="">Select ingredient…</option>'+[...ingredients].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}"${w&&w.ingredientId===i.id?' selected':''}>${i.name} (${i.unit})</option>`).join('');
+  const setUnit=()=>{const i=ingrById(sel.value);if(i)document.getElementById('waste-f-unit').value=i.unit;};
+  sel.onchange=setUnit;
+  if(w){setUnit();}else{document.getElementById('waste-f-unit').value='';}
+  if(w)document.getElementById('waste-f-reason').value=w.reason;
+  openModal('modal-waste');
+}
+function editWaste(id){openWasteModal(id);}
+async function deleteWaste(id) {
+  if(!confirm('Delete this waste entry? Stock will be restored.'))return;
+  const w=wastes.find(x=>x.id===id); if(!w)return;
+  const i=ingrById(w.ingredientId);
+  await sb.from('wastes').delete().eq('id',id);
+  if(i){await sb.from('ingredients').update({stock:+(i.stock+w.qty).toFixed(4)}).eq('id',i.id);}
+  await loadAll(); renderWaste(); toast('Waste entry deleted — stock restored');
+}
+async function saveWaste() {
+  const ingrId = document.getElementById('waste-f-ingr').value;
+  const date   = document.getElementById('waste-f-date').value;
+  const qty    = parseFloat(document.getElementById('waste-f-qty').value)||0;
+  const unit   = document.getElementById('waste-f-unit').value.trim();
+  const reason = document.getElementById('waste-f-reason').value;
+  const notes  = document.getElementById('waste-f-notes').value.trim();
+  if (!ingrId) { toast('Select an ingredient',true); return; }
+  if (qty<=0)  { toast('Qty must be > 0',true); return; }
+  setBtn('waste-save-btn', true);
+  if(editingWasteId) {
+    const old=wastes.find(x=>x.id===editingWasteId);
+    if(old){const oldIngr=ingrById(old.ingredientId);if(oldIngr){await sb.from('ingredients').update({stock:+(oldIngr.stock+old.qty).toFixed(4)}).eq('id',oldIngr.id);}}
+    await loadAll();
+  }
+  const i = ingrById(ingrId);
+  const unitCost   = i ? i.cost : 0;
+  const wasteValue = qty * unitCost;
+  if(editingWasteId) {
+    await sb.from('wastes').update({date,ingredient_id:ingrId,qty,unit,reason,unit_cost:unitCost,waste_value:wasteValue,notes}).eq('id',editingWasteId);
+  } else {
+    const {error:e1}=await sb.from('wastes').insert({id:uid('WST'),date,ingredient_id:ingrId,qty,unit,reason,unit_cost:unitCost,waste_value:wasteValue,notes});
+    if(e1){setBtn('waste-save-btn',false);toast('Error: '+e1.message,true);return;}
+  }
+  await loadAll();
+  const freshIngr=ingrById(ingrId);
+  if(freshIngr){await sb.from('ingredients').update({stock:Math.max(0,+(freshIngr.stock-qty).toFixed(4))}).eq('id',ingrId);}
+  await loadAll();
+  setBtn('waste-save-btn', false);
+  closeModal('modal-waste');
+  renderWaste();
+  toast(`Waste ${editingWasteId?'updated':'logged'} — ${i?i.name:ingrId} −${qty} ${unit}`);
+  editingWasteId=null;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RECIPES
+// ══════════════════════════════════════════════════════════════
+function recipeCost(rec) { return rec.ingredients.reduce((s,ri)=>{ const i=ingrById(ri.id); return i?s+(ri.qty*i.cost):s; },0); }
+function renderRecipes() {
+  const q = (document.getElementById('rec-search').value||'').toLowerCase();
+  let rows = recipes;
+  if (q) rows = rows.filter(r=>r.name.toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q));
+  rows = rows.slice().sort((a,b)=>(a.category||'').localeCompare(b.category||'')||a.name.localeCompare(b.name));
+  const tbody = document.getElementById('rec-tbody');
+  if (!rows.length) { tbody.innerHTML=`<tr><td colspan="6"><div class="empty-state"><p>No recipes yet.</p></div></td></tr>`; return; }
+  tbody.innerHTML = rows.map(r=>{
+    const cost=recipeCost(r), price=r.sellPrice||0, pct=price>0?(cost/price*100):0;
+    const pc=pct>35?'color:var(--danger)':pct>25?'color:var(--warn)':'color:var(--ok)';
+    const il=(r.ingredients||[]).map(ri=>{ const i=ingrById(ri.id); return i?`<span class="chip">${i.name} ×${ri.qty}${ri.unit}</span>`:''; }).join(' ');
+    return `<tr><td><strong>${r.name}</strong></td><td><span class="chip">${r.category}</span></td><td style="max-width:220px">${il}</td><td class="mono">${fmtCurr(cost)}</td><td class="mono">${price>0?fmtCurr(price):'—'}</td><td class="mono" style="${pc}"><strong>${pct>0?pct.toFixed(1)+'%':'—'}</strong></td><td class="no-print" style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick='openRecipeModal("${r.id}")'>Edit</button> <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" onclick='deleteRecipe("${r.id}")'>Delete</button></td></tr>`;
+  }).join('');
+}
+
+let recipeIngrRows = [];
+let editingRecId   = null;
+function openRecipeModal(id) {
+  editingRecId = id||null;
+  document.getElementById('modal-rec-title').textContent = id ? 'Edit Recipe' : 'Add Recipe';
+  if (id) {
+    const r = recipes.find(x=>x.id===id);
+    document.getElementById('rec-f-name').value  = r.name;
+    document.getElementById('rec-f-cat').value   = r.category;
+    document.getElementById('rec-f-price').value = r.sellPrice||'';
+    recipeIngrRows = (r.ingredients||[]).map(ri=>({...ri}));
+  } else {
+    document.getElementById('rec-f-name').value='';
+    document.getElementById('rec-f-price').value='';
+    recipeIngrRows = [{id:'',qty:0,unit:''}];
+  }
+  renderRecipeIngrRows();
+  openModal('modal-rec');
+}
+function renderRecipeIngrRows() {
+  document.getElementById('rec-ingr-list').innerHTML = recipeIngrRows.map((ri,idx)=>{
+    const ingr = ingrById(ri.id);
+    const unitLabel = ingr ? ingr.unit : (ri.unit||'g/ml');
+    return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <select onchange="recipeIngrRows[${idx}].id=this.value;const _i=ingrById(this.value);if(_i){recipeIngrRows[${idx}].unit=_i.unit;}renderRecipeIngrRows();" style="flex:2;padding:6px 8px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--bg);color:var(--fg);font-size:13px">
+        <option value="">Select…</option>${[...ingredients].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}"${i.id===ri.id?' selected':''}>${i.name}</option>`).join('')}
+      </select>
+      <input type="number" step="0.1" placeholder="Qty (${unitLabel})" value="${ri.qty||''}" oninput="recipeIngrRows[${idx}].qty=parseFloat(this.value)||0" style="width:100px;padding:6px 8px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--bg);color:var(--fg);font-size:13px">
+      <span style="min-width:32px;text-align:center;font-size:12px;font-weight:600;color:var(--fg-2)">${unitLabel}</span>
+      <button class="btn btn-secondary btn-sm" onclick="removeRecipeIngrRow(${idx})">×</button>
+    </div>`;
+  }).join('');
+}
+function addRecipeIngredientRow(){ recipeIngrRows.push({id:'',qty:0,unit:''}); renderRecipeIngrRows(); }
+function removeRecipeIngrRow(idx){ recipeIngrRows.splice(idx,1); renderRecipeIngrRows(); }
+async function saveRecipe() {
+  const name  = document.getElementById('rec-f-name').value.trim();
+  const category = document.getElementById('rec-f-cat').value;
+  const price = parseFloat(document.getElementById('rec-f-price').value)||0;
+  if (!name) { toast('Recipe name is required',true); return; }
+  const validIngr = recipeIngrRows.filter(ri=>ri.id&&ri.qty>0);
+  if (!validIngr.length) { toast('Add at least one ingredient',true); return; }
+  setBtn('rec-save-btn',true);
+  const row = {name, category, sell_price:price, ingredients:validIngr};
+  let err;
+  if (editingRecId) {
+    const {error}=await sb.from('recipes').update(row).eq('id',editingRecId); err=error;
+  } else {
+    const {error}=await sb.from('recipes').insert({id:uid('REC'),...row}); err=error;
+  }
+  setBtn('rec-save-btn',false);
+  if (err) { toast('Error: '+err.message,true); return; }
+  await loadAll();
+  closeModal('modal-rec');
+  renderRecipes();
+  toast(editingRecId?'Recipe updated':'Recipe saved');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  UNIT CONVERSIONS
+// ══════════════════════════════════════════════════════════════
+function renderConversions() {
+  const sorted = [...ingredients].sort((a,b)=>a.name.localeCompare(b.name));
+  const tbody = document.getElementById('conv-tbody');
+  if (!sorted.length) { tbody.innerHTML='<tr><td colspan="8"><div class="empty-state">No ingredients</div></td></tr>'; return; }
+  tbody.innerHTML = sorted.map(i => {
+    const hasConv = i.gMlPerPackage > 1;
+    const pkgUnit  = hasConv ? `<span class="chip">${i.purchaseUnit}</span>` : '<span style="color:var(--fg-3)">—</span>';
+    const pkgSize  = hasConv ? `<span class="mono">${i.gMlPerPackage} ${i.unit}/pkg</span>` : `<span style="color:var(--fg-3);font-size:11px">not set — <a href="#" onclick="navigate('ingredients');editIngredient('${i.id}');return false;" style="color:var(--gold)">edit</a></span>`;
+    const pkgCostD = i.purchaseCost > 0 ? fmtCurr(i.purchaseCost)+'/pkg' : '—';
+    return `<tr>
+      <td><strong>${i.name}</strong></td>
+      <td><span class="chip">${i.category}</span></td>
+      <td>${pkgUnit}</td>
+      <td>${pkgSize}</td>
+      <td class="mono">${i.unit}</td>
+      <td class="mono">${pkgCostD}</td>
+      <td class="mono">${fmtCurr(i.cost)}/${i.unit}</td>
+      <td class="mono">${fmtNum(i.stock,i.unit==='each'?0:1)} ${i.unit}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  REPORTS
+// ══════════════════════════════════════════════════════════════
+function renderReports() {
+  const totalVal = ingredients.reduce((s,i)=>s+(i.stock*i.cost),0);
+  const totalWaste = wastes.reduce((s,w)=>s+(w.wasteValue||0),0);
+  const totalRecv  = receivings.reduce((s,r)=>s+(r.total||0),0);
+  const validRec   = recipes.filter(r=>r.sellPrice>0);
+  const avgCostPct = validRec.length ? validRec.reduce((s,r)=>s+(recipeCost(r)/r.sellPrice*100),0)/validRec.length : 0;
+
+  document.getElementById('report-stats').innerHTML = `
+    <div class="stat-tile"><div class="label">Inventory Value</div><div class="value">${fmtCurr(totalVal)}</div></div>
+    <div class="stat-tile"><div class="label">Total Waste Value</div><div class="value" style="color:var(--danger)">${fmtCurr(totalWaste)}</div></div>
+    <div class="stat-tile"><div class="label">Total Receiving</div><div class="value">${fmtCurr(totalRecv)}</div></div>
+    <div class="stat-tile"><div class="label">Avg Recipe Cost %</div><div class="value" style="color:${avgCostPct>35?'var(--danger)':avgCostPct>25?'var(--warn)':'var(--ok)'}">${avgCostPct.toFixed(1)}%</div></div>`;
+
+  const byReason={};
+  wastes.forEach(w=>{byReason[w.reason]=(byReason[w.reason]||0)+(w.wasteValue||0);});
+  const reasons=Object.entries(byReason).sort((a,b)=>b[1]-a[1]);
+  const maxR=reasons.length?Math.max(...reasons.map(r=>r[1])):1;
+  document.getElementById('report-waste-reason').innerHTML = reasons.length
+    ? reasons.map(([r,v])=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>${r}</span><span class="mono">${fmtCurr(v)}</span></div><div class="stock-bar" style="height:8px"><div class="stock-fill" style="width:${(v/maxR*100).toFixed(0)}%;background:var(--danger);opacity:.7"></div></div></div>`).join('')
+    : '<div class="empty-state"><p>No waste data</p></div>';
+
+  const byIngr={};
+  wastes.forEach(w=>{byIngr[w.ingredientId]=(byIngr[w.ingredientId]||0)+(w.wasteValue||0);});
+  const topIngr=Object.entries(byIngr).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxI=topIngr.length?Math.max(...topIngr.map(r=>r[1])):1;
+  document.getElementById('report-top-waste').innerHTML = topIngr.length
+    ? topIngr.map(([id,v])=>{const i=ingrById(id);return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>${i?i.name:id}</span><span class="mono">${fmtCurr(v)}</span></div><div class="stock-bar" style="height:8px"><div class="stock-fill" style="width:${(v/maxI*100).toFixed(0)}%;background:var(--gold)"></div></div></div>`;}).join('')
+    : '<div class="empty-state"><p>No waste data</p></div>';
+
+  const byCat={};
+  ingredients.forEach(i=>{ if(!byCat[i.category])byCat[i.category]={count:0,value:0,low:0}; byCat[i.category].count++; byCat[i.category].value+=i.stock*i.cost; if(stockStatus(i)!=='ok')byCat[i.category].low++; });
+  document.getElementById('report-cat-value').innerHTML = `<table><thead><tr><th>Category</th><th class="text-right">Items</th><th class="text-right">Low/Out</th><th class="text-right">Value</th></tr></thead><tbody>
+    ${Object.entries(byCat).sort((a,b)=>b[1].value-a[1].value).map(([cat,d])=>`<tr><td><span class="chip">${cat}</span></td><td class="mono text-right">${d.count}</td><td class="text-right">${d.low>0?`<span class="badge badge-warn">${d.low}</span>`:'<span class="badge badge-ok">0</span>'}</td><td class="mono text-right"><strong>${fmtCurr(d.value)}</strong></td></tr>`).join('')}
+    <tr style="border-top:2px solid var(--border-2)"><td><strong>Total</strong></td><td class="mono text-right">${ingredients.length}</td><td></td><td class="mono text-right"><strong>${fmtCurr(totalVal)}</strong></td></tr>
+  </tbody></table>`;
+}
+function renderInventoryReport() {
+  const q      = (document.getElementById('invr-search').value||'').toLowerCase();
+  const cat    = document.getElementById('invr-cat').value;
+  const status = document.getElementById('invr-status').value;
+  const cats = [...new Set(ingredients.map(i=>i.category))].sort();
+  const catSel = document.getElementById('invr-cat'); const curCat = catSel.value;
+  catSel.innerHTML = '<option value="">All categories</option>'+cats.map(c=>`<option${c===curCat?' selected':''}>${c}</option>`).join('');
+  const rows = [...ingredients].filter(i=>{
+    if(q&&!i.name.toLowerCase().includes(q)&&!(i.category||'').toLowerCase().includes(q)&&!(i.supplier||'').toLowerCase().includes(q))return false;
+    if(cat&&i.category!==cat)return false;
+    if(status&&stockStatus(i)!==status)return false;
+    return true;
+  }).sort((a,b)=>a.category.localeCompare(b.category)||a.name.localeCompare(b.name));
+  const filteredVal = rows.reduce((s,i)=>s+(i.stock*i.cost),0);
+  document.getElementById('report-inventory-list').innerHTML = `<table><thead><tr><th>Ingredient</th><th>Category</th><th>Stock</th><th>Min</th><th>Status</th><th class="text-right">Cost/Unit</th><th class="text-right">Value</th><th>Supplier</th></tr></thead><tbody>
+    ${rows.length?rows.map(i=>{
+      const ps=i.gMlPerPackage>1?i.gMlPerPackage:1,dp=i.unit==='each'?0:2,s=stockStatus(i);
+      const stockDisp=i.gMlPerPackage>1?`${fmtNum(i.stock/ps,i.stock/ps%1===0?0:2)} ${i.purchaseUnit} (${fmtNum(i.stock,dp)} ${i.unit})`:`${fmtNum(i.stock,dp)} ${i.unit}`;
+      const minDisp=i.gMlPerPackage>1?`${fmtNum(i.min/ps,i.min/ps%1===0?0:2)} ${i.purchaseUnit}`:`${fmtNum(i.min,dp)} ${i.unit}`;
+      return`<tr><td><strong>${i.name}</strong></td><td><span class="chip">${i.category}</span></td><td class="mono">${stockDisp}</td><td class="mono">${minDisp}</td><td>${statusBadge(s)}</td><td class="mono text-right">${fmtCurr(i.cost)}/${i.unit}</td><td class="mono text-right"><strong>${fmtCurr(i.stock*i.cost)}</strong></td><td>${i.supplier||'—'}</td></tr>`;
+    }).join(''):'<tr><td colspan="8"><div class="empty-state"><p>No items match the filter.</p></div></td></tr>'}
+    <tr style="border-top:2px solid var(--border-2)"><td colspan="6"><strong>Showing ${rows.length} of ${ingredients.length} items</strong></td><td class="mono text-right"><strong>${fmtCurr(filteredVal)}</strong></td><td></td></tr>
+  </tbody></table>`;
+}
+function printMenu() {
+  document.getElementById('menu-print-date').textContent = 'Generated: '+new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  setTimeout(()=>window.print(), 100);
+}
+function printInventoryReport() {
+  document.getElementById('invreport-print-date').textContent = 'Generated: '+new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  setTimeout(()=>window.print(), 100);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SALES
+// ══════════════════════════════════════════════════════════════
+function renderSales() {
+  const q = (document.getElementById('sales-search').value||'').toLowerCase();
+  let rows = sales;
+  if (q) rows = rows.filter(s => s.recipeName.toLowerCase().includes(q));
+  const tbody = document.getElementById('sales-tbody');
+  if (!rows.length) { tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><p>No sales recorded yet.</p></div></td></tr>`; return; }
+  tbody.innerHTML = rows.map(s => {
+    const deducted = (s.ingredientsDeducted||[]).map(d=>{
+      const i = ingrById(d.id);
+      return i ? `${i.name} ×${fmtNum(d.totalQty,2)}${d.unit}` : '';
+    }).filter(Boolean).join(', ');
+    return `<tr>
+      <td class="mono">${s.id}</td>
+      <td>${fmtDate(s.date)}</td>
+      <td><strong>${s.recipeName}</strong></td>
+      <td class="mono text-right">${s.qtySold}</td>
+      <td class="mono">${fmtCurr(s.totalCost)}</td>
+      <td class="mono">${s.totalRevenue > 0 ? fmtCurr(s.totalRevenue) : '—'}</td>
+      <td style="font-size:11px;color:var(--fg-2);max-width:260px">${deducted||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openSalesModal() {
+  document.getElementById('sales-f-date').value = today();
+  document.getElementById('sales-f-qty').value  = '';
+  document.getElementById('sales-preview').innerHTML = '';
+  const sel = document.getElementById('sales-f-recipe');
+  sel.innerHTML = '<option value="">Select recipe…</option>' +
+    [...recipes].sort((a,b)=>a.name.localeCompare(b.name))
+      .map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  sel.onchange = function() { updateSalesPreview(); };
+  document.getElementById('sales-f-qty').oninput = function() { updateSalesPreview(); };
+  openModal('modal-sales');
+}
+
+function updateSalesPreview() {
+  const recipeId = document.getElementById('sales-f-recipe').value;
+  const qty      = parseInt(document.getElementById('sales-f-qty').value)||0;
+  const preview  = document.getElementById('sales-preview');
+  if (!recipeId || qty <= 0) { preview.innerHTML=''; return; }
+  const r = recipes.find(x=>x.id===recipeId);
+  if (!r) return;
+  const rows = (r.ingredients||[]).map(ri=>{
+    const i = ingrById(ri.id);
+    if (!i) return null;
+    const totalQty = ri.qty * qty;
+    const enough   = i.stock >= totalQty;
+    return `<tr>
+      <td>${i.name}</td>
+      <td class="mono">${fmtNum(ri.qty,3)} ${ri.unit} × ${qty}</td>
+      <td class="mono"><strong>${fmtNum(totalQty,3)} ${ri.unit}</strong></td>
+      <td class="mono">${fmtNum(i.stock,2)} ${i.unit} in stock</td>
+      <td>${enough ? '<span class="badge badge-ok">OK</span>' : '<span class="badge badge-crit">Low</span>'}</td>
+    </tr>`;
+  }).filter(Boolean).join('');
+  const cost = recipeCost(r) * qty;
+  const rev  = (r.sellPrice||0) * qty;
+  preview.innerHTML = `
+    <div style="margin-top:12px;margin-bottom:4px" class="section-label">Ingredients to deduct</div>
+    <div class="tbl-wrap" style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+      <table><thead><tr><th>Ingredient</th><th>Per Serving</th><th>Total Deduct</th><th>Current Stock</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:10px;font-size:13px">
+      <span>Total recipe cost: <strong>${fmtCurr(cost)}</strong></span>
+      ${rev>0?`<span>Expected revenue: <strong>${fmtCurr(rev)}</strong></span>`:''}
+    </div>`;
+}
+
+async function saveSales() {
+  const recipeId = document.getElementById('sales-f-recipe').value;
+  const date     = document.getElementById('sales-f-date').value;
+  const qtySold  = parseInt(document.getElementById('sales-f-qty').value)||0;
+  if (!recipeId)   { toast('Select a recipe',true); return; }
+  if (qtySold <= 0){ toast('Qty must be at least 1',true); return; }
+  const r = recipes.find(x=>x.id===recipeId);
+  if (!r) return;
+  setBtn('sales-save-btn', true);
+
+  const totalCost    = recipeCost(r) * qtySold;
+  const totalRevenue = (r.sellPrice||0) * qtySold;
+  const deducted     = [];
+
+  // Deduct each ingredient from inventory
+  for (const ri of (r.ingredients||[])) {
+    const i = ingrById(ri.id);
+    if (!i) continue;
+    const totalQty = +(ri.qty * qtySold).toFixed(4);
+    const newStock = Math.max(0, +(i.stock - totalQty).toFixed(4));
+    await sb.from('ingredients').update({ stock: newStock }).eq('id', i.id);
+    deducted.push({ id: i.id, totalQty, unit: ri.unit });
+  }
+
+  // Log the sale
+  const { error } = await sb.from('sales').insert({
+    id: uid('SAL'),
+    date,
+    recipe_id:             recipeId,
+    recipe_name:           r.name,
+    qty_sold:              qtySold,
+    total_cost:            totalCost,
+    total_revenue:         totalRevenue,
+    ingredients_deducted:  deducted
+  });
+
+  setBtn('sales-save-btn', false);
+  if (error) { toast('Error: '+error.message, true); return; }
+  await loadAll();
+  closeModal('modal-sales');
+  renderSales();
+  toast(`${qtySold}× ${r.name} recorded — inventory updated`);
+}
+
+// ── Print ─────────────────────────────────────────────────────
+function printReport() {
+  document.getElementById('report-print-date').textContent =
+    'Generated: ' + new Date().toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  navigate('reports');
+  setTimeout(() => window.print(), 300);
+}
+
+// ── Init ──────────────────────────────────────────────────────
+(async () => {
+  try {
+    setConn('loading', 'Connecting…');
+    await seedIfEmpty();
+    await loadAll();
+    setConn('ok', 'Live · Supabase');
+    renderDashboard();
+  } catch(e) {
+    setConn('err', 'Connection error');
+    toast('Could not connect to database: ' + e.message, true);
+    console.error(e);
+  }
+})();
+
+// ══════════════════════════════════════════════════════════════
+//  IMPORT FROM LOCAL BACKUP
+// ══════════════════════════════════════════════════════════════
+function exportBackup() {
+  const toIngr = i => ({id:i.id,name:i.name,category:i.category,stock:i.stock,min_stock:i.min,unit:i.unit,cost:i.cost,supplier:i.supplier||'',purchase_unit:i.purchaseUnit||'Bag',g_ml_per_package:i.gMlPerPackage||1,purchase_cost:i.purchaseCost||0});
+  const toRecv = r => ({id:r.id,date:r.date,supplier:r.supplier,invoice:r.invoice||'',ingredient_id:r.ingredientId,qty:r.qty,unit:r.unit,unit_cost:r.unitCost,total:r.total});
+  const toWaste= w => ({id:w.id,date:w.date,ingredient_id:w.ingredientId,qty:w.qty,unit:w.unit,reason:w.reason,unit_cost:w.unitCost,waste_value:w.wasteValue,notes:w.notes||''});
+  const toRecipe=r => ({id:r.id,name:r.name,category:r.category||'',sell_price:r.sellPrice||0,notes:r.notes||'',ingredients:r.ingredients||[]});
+  const toSale  =s => ({id:s.id,date:s.date,recipe_id:s.recipeId,recipe_name:s.recipeName||'',qty_sold:s.qtySold,total_cost:s.totalCost,total_revenue:s.totalRevenue,ingredients_deducted:s.ingredientsDeducted||[]});
+  const data = {
+    exportDate: new Date().toISOString(),
+    appVersion: 'supabase-v1',
+    ingredients: ingredients.map(toIngr),
+    receivings:  receivings.map(toRecv),
+    wastes:      wastes.map(toWaste),
+    recipes:     recipes.map(toRecipe),
+    sales:       sales.map(toSale),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = 'BagOfBeans-backup-' + today() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Backup downloaded');
+}
+function importBackup() { document.getElementById('import-file-input').click(); }
+async function handleImportFile(e) {
+  const file = e.target.files[0]; e.target.value=''; if(!file)return;
+  let data;
+  try { data = JSON.parse(await file.text()); } catch(_){ toast('Invalid JSON file',true); return; }
+  const tables = ['ingredients','receivings','wastes','recipes','sales'];
+  const missing = tables.filter(t=>!Array.isArray(data[t]));
+  if(missing.length){ toast('File missing: '+missing.join(', '),true); return; }
+  const total = tables.reduce((s,t)=>s+data[t].length,0);
+  if(!confirm(`Import ${total} records from "${file.name}"?\n\nExisting records with the same ID will be overwritten. New records will be added. Nothing will be deleted.`)) return;
+  toast('Importing…');
+  // Map local camelCase keys back to snake_case for Supabase
+  // Local backup stores snake_case keys; Supabase version stores camelCase in memory.
+  // Handle both with ?? fallbacks.
+  const mapIngrOut = i => ({id:i.id,name:i.name,category:i.category,stock:i.stock,min_stock:i.min_stock??i.min,unit:i.unit,cost:i.cost,supplier:i.supplier||'',purchase_unit:i.purchase_unit??i.purchaseUnit??'Bag',g_ml_per_package:i.g_ml_per_package??i.gMlPerPackage??1,purchase_cost:i.purchase_cost??i.purchaseCost??0});
+  const mapRecvOut = r => ({id:r.id,date:r.date,supplier:r.supplier,invoice:r.invoice||'',ingredient_id:r.ingredient_id??r.ingredientId,qty:r.qty,unit:r.unit,unit_cost:r.unit_cost??r.unitCost,total:r.total});
+  const mapWasteOut= w => ({id:w.id,date:w.date,ingredient_id:w.ingredient_id??w.ingredientId,qty:w.qty,unit:w.unit,reason:w.reason,unit_cost:w.unit_cost??w.unitCost,waste_value:w.waste_value??w.wasteValue,notes:w.notes||''});
+  const mapRecipeOut=r => ({id:r.id,name:r.name,category:r.category||'',sell_price:r.sell_price??r.sellPrice??0,notes:r.notes||'',ingredients:r.ingredients||[]});
+  const mapSaleOut  =s => ({id:s.id,date:s.date,recipe_id:s.recipe_id??s.recipeId,recipe_name:s.recipe_name??s.recipeName??'',qty_sold:s.qty_sold??s.qtySold??s.qty??1,total_cost:s.total_cost??s.totalCost??s.cost??0,total_revenue:s.total_revenue??s.totalRevenue??s.revenue??0,ingredients_deducted:s.ingredients_deducted??s.ingredientsDeducted??[]});
+  const errors = [];
+  const upsert = async (table, rows) => {
+    if(!rows.length)return;
+    console.log(`Upserting ${rows.length} ${table}:`, JSON.stringify(rows[0]));
+    const {error}=await sb.from(table).upsert(rows,{onConflict:'id'});
+    if(error){ errors.push(`${table}: ${error.message}`); console.error(table, error); }
+  };
+  await upsert('ingredients', data.ingredients.map(mapIngrOut));
+  await upsert('receivings',  data.receivings.map(mapRecvOut));
+  await upsert('wastes',      data.wastes.map(mapWasteOut));
+  await upsert('recipes',     data.recipes.map(mapRecipeOut));
+  await upsert('sales',       data.sales.map(mapSaleOut));
+  if(errors.length){ alert('Import errors:\n\n'+errors.join('\n')); toast('Import finished with errors',true); }
+  else { toast(`Import complete — ${total} records synced to database`); }
+  await loadAll();
+  navigate('dashboard');
+}
+</script>
